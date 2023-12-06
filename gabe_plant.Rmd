@@ -1,0 +1,181 @@
+---
+title: "Oconee Forest Park Plant Diversity"
+author: "Raymond Schneider"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load libraries, message=FALSE}
+library(tidyverse)
+library(collapsibleTree)
+library(viridis)
+library(kableExtra)
+```
+
+```{r load and clean plant data}
+plantData <- read_csv("IAIA_Science.csv")
+colnames(plantData) <- str_replace_all(colnames(plantData), " ", "_")
+```
+
+Get relative abundance and richness
+
+```{r relative abundance and richness}
+# relative abundance:
+plantDataEnv <- plantData %>% group_by(Environment, Common_name) %>%
+  summarize(Count = mean(Amount)) %>% # average abundance of each species across plots
+  ungroup() %>%
+  mutate(Count = round(Count, 0))
+plantDataEnvSum <- plantDataEnv %>% group_by(Environment) %>% summarize(Total_count = sum(Count)) # get total species abundance per environment
+plantDataEnvTotal <- plantDataEnv %>% left_join(plantDataEnvSum) %>%
+  mutate(Rel_abundance_env = Count/Total_count) # calculate relative abundance per environment
+
+# richness:
+plantRichnessPlot <- plantData %>% group_by(Environment, Plot) %>% summarize(Plot_richness = length(unique(Common_name)))
+
+# join everything together for plotting
+plantDataTotal <- plantData %>% left_join(plantRichnessPlot) %>% left_join(plantDataEnvTotal) %>% select(!Notes) %>% unique()
+```
+
+Plot average species richness in each environment:
+
+```{r plot spp richness, echo=FALSE}
+p1 <- ggplot(plantDataTotal, aes(x = Environment, y = Plot_richness, fill = Environment)) +
+  geom_boxplot(alpha=.6) +
+  geom_point(show.legend = F) +
+  theme_classic() +
+  scale_fill_viridis_d() +
+  labs(x = "Environment", y = "Species Richness")
+ggsave("richness.png", p1, dpi = 300)
+p1
+```
+Shannon-Weiner diversity index: measures diversity in terms of richness and evenness.
+
+Write a function that calculates Shannon diversity:
+
+```{r shannon function}
+shannon <- function(x){
+  P <- x/sum(x)
+  index <- -sum(P*log(P))
+  return(index)
+}
+```
+
+```{r calculate shannon diversity}
+plantDiversity <- plantDataEnvTotal %>%
+  group_by(Environment) %>%
+  summarize(H = shannon(Rel_abundance_env))
+```
+
+Plot Shannon diversity in each environment:
+
+```{r plot diversity, echo=FALSE}
+p2 <- ggplot(plantDiversity, aes(x = Environment, y = H, fill = Environment)) +
+  geom_bar(stat = "identity", color = "grey40", alpha=.6) +
+  theme_classic() +
+  scale_fill_viridis_d() +
+  labs(x = "", y = "Shannon's H")
+ggsave("shannon.png", p2, dpi = 300)
+p2
+```
+
+```{r}
+```
+
+```{r}
+# Install and load required packages if not already installed
+install.packages("kableExtra")
+install.packages("webshot")
+install.packages("htmlwidgets")
+install.packages("scales")
+install.packages("dplyr")
+
+library(kableExtra)
+library(webshot)
+library(htmlwidgets)
+library(scales)
+library(dplyr)
+
+# Your existing code
+overallRelativeAbundance <- plantData %>% 
+  group_by(Common_name) %>%
+  summarize(species_abundance = sum(Amount)) %>%
+  mutate(total_abundance = 147, relative_abundance = species_abundance / total_abundance)
+
+overallDiversity <- shannon(overallRelativeAbundance$relative_abundance)
+
+overallRelativeAbundance <- overallRelativeAbundance %>%
+  select(!c(species_abundance, total_abundance)) %>%
+  mutate(relative_abundance = scales::percent(relative_abundance)) %>%
+  rename(Species = Common_name, "Relative Abundance" = relative_abundance)
+
+# Create the table
+table_html <- overallRelativeAbundance %>%
+  kbl(caption = "Overall relative abundance") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+# Save the table as an image
+save_kable(table_html, "overallRelativeAbundance.png")
+
+
+```
+
+```{r}
+```
+
+```{r}
+```
+
+The total species richness in Oconee Forest Park (according to our limited study) is 47.
+
+The overall Shannon diversity index is approximately 3.40
+
+```{r}
+library(ggsankey)
+library(ggplot2)
+library(dplyr)
+
+Ethnobotany <- read.csv("native-plants-medicine.csv")
+names(Ethnobotany) <- c('Plant', 'Usage', 'For')
+
+# Step 1
+df <- Ethnobotany %>%
+  make_long(Plant, Usage, For)
+
+# Chart 1
+pl <- ggplot(df, aes(x = x,
+                     next_x = next_x,
+                     node = node,
+                     next_node = next_node,
+                     fill = factor(node),
+                     label = node)) +
+  geom_sankey(flow.alpha = 0.5,
+              node.color = "black",
+              show.legend = FALSE,
+              width = 0.35
+              ) +
+  geom_sankey_label(size = 2.5, color = "black", fill = "white", position = "identity") +
+  theme_bw() +
+  theme(legend.position = "none",
+        axis.title = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank()) +
+  scale_fill_viridis_d(option = "inferno") +
+  theme_sankey(base_size = 12)
+pl + theme(plot.margin = margin(0, 0, 0, 0, "cm"))  # Adjust the values as needed
+
+ggsave(
+  filename = "ethnobotany.png",
+  plot = pl,
+  width = 30,
+  height = 30,
+  units = "cm",
+  dpi = 300
+)
+pl
+
+```

@@ -99,7 +99,6 @@ library(htmlwidgets)
 library(scales)
 library(dplyr)
 
-# Your existing code
 overallRelativeAbundance <- plantData %>% 
   group_by(Common_name) %>%
   summarize(species_abundance = sum(Amount)) %>%
